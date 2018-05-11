@@ -1,0 +1,92 @@
+#!/usr/bin/expect
+
+# Get the list of password, one per line #####
+set f [open "~/passwords.txt"]
+set passwords [split [read $f] "\n"]
+close $f
+
+set user [lindex $argv 0]
+set timeout 6000
+ 
+set ip [lindex $argv 1]
+ 
+spawn ssh -o PreferredAuthentications=password \
+          -o StrictHostKeyChecking=no \
+          -o PreferredAuthentications=keyboard-interactive \
+          -o UserKnownHostsFile=/dev/null \
+          -o NumberOfPasswordPrompts=[llength $passwords] "$user\@$ip"
+ 
+set try 0
+set ntry 1
+ 
+expect {
+    "Password: " {
+        send [lindex $passwords $try]\r
+        incr try
+        exp_continue
+    }
+ 
+    " password: " {
+        send [lindex $passwords $try]\r
+        incr try
+        exp_continue
+    }
+ 
+    "(current) UNIX password" {
+        send [lindex $passwords $try-$ntry]\r
+        exp_continue
+    }
+ 
+    "old password" {
+        send [lindex $passwords $try-$ntry]\r
+        incr ntry
+        exp_continue
+    }
+ 
+   "New UNIX password" {
+        send [lindex $passwords $try]\r
+        exp_continue
+    }
+ 
+    "New password" {
+        send [lindex $passwords $try]\r
+        exp_continue
+    }
+ 
+    "Retype new UNIX password" {
+        send [lindex $passwords $try]\r
+        exp_continue
+    }
+ 
+ 
+    "Retype new password" {
+        send [lindex $passwords $try]\r
+        exp_continue
+    }
+     
+    "bash-3.2" {
+        interact
+    }
+ 
+    "~$" {
+                interact
+    }
+ 
+    "@"  {
+                interact
+    }
+ 
+ 
+    "~]" {
+        interact
+    }
+ 
+    "Permission denied (publickey,gssapi-keyex,gssapi-with-mic,password)." {
+            send "/export/scripts/sshpass.sh $ip\n"
+    }
+ 
+    timeout {
+        send_error ">>> TIME OUT - Deu ruim !\n"
+        exit 1
+    }
+}
